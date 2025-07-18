@@ -1,5 +1,5 @@
 # 基于官方 Node.js 镜像
-FROM node:20-alpine AS builder
+FROM node:20-slim AS builder
 
 # 设置工作目录
 WORKDIR /app
@@ -7,8 +7,8 @@ WORKDIR /app
 # 拷贝依赖文件
 COPY package.json package-lock.json ./
 
-# 安装依赖
-RUN npm install --frozen-lockfile
+# 使用国内 npm 镜像加速并安装依赖
+RUN npm config set registry https://registry.npmmirror.com/ && npm install --frozen-lockfile
 
 # 拷贝全部源代码
 COPY . .
@@ -17,7 +17,7 @@ COPY . .
 RUN npm run build
 
 # 生产环境镜像
-FROM node:20-alpine AS runner
+FROM node:20-slim AS runner
 WORKDIR /app
 
 # 仅拷贝生产依赖和构建产物
