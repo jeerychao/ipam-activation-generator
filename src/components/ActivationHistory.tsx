@@ -22,9 +22,12 @@ function exportCSV(history: HistoryItem[]) {
   URL.revokeObjectURL(url);
 }
 
+const PAGE_SIZE = 10;
+
 export default function ActivationHistory() {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     const raw = localStorage.getItem('activation_history');
@@ -34,12 +37,33 @@ export default function ActivationHistory() {
   }, []);
 
   const handleCopy = (code: string, idx: number) => {
-    navigator.clipboard.writeText(code);
-    setCopiedIndex(idx);
-    setTimeout(() => setCopiedIndex(null), 1500);
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(code).then(() => {
+        setCopiedIndex(idx);
+        setTimeout(() => setCopiedIndex(null), 1500);
+      }).catch(() => {
+        fallbackCopy(code);
+      });
+    } else {
+      fallbackCopy(code);
+    }
   };
+  function fallbackCopy(text: string) {
+    const input = document.createElement('input');
+    input.value = text;
+    document.body.appendChild(input);
+    input.select();
+    document.execCommand('copy');
+    document.body.removeChild(input);
+    setCopiedIndex(-1);
+    setTimeout(() => setCopiedIndex(null), 1500);
+  }
 
   if (history.length === 0) return null;
+
+  // 分页逻辑
+  const totalPages = Math.ceil(history.length / PAGE_SIZE);
+  const pagedHistory = history.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
     <div className="max-w-2xl mx-auto mt-10 p-6 bg-white rounded-xl shadow border border-gray-100">
@@ -64,7 +88,7 @@ export default function ActivationHistory() {
             </tr>
           </thead>
           <tbody>
-            {history.map((item, idx) => (
+            {pagedHistory.map((item, idx) => (
               <tr key={idx} className="even:bg-gray-50">
                 <td className="px-2 py-1 border font-mono">{item.serial}</td>
                 <td className="px-2 py-1 border">{item.validity}</td>
@@ -73,9 +97,9 @@ export default function ActivationHistory() {
                 <td className="px-2 py-1 border">
                   <button
                     className="px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition"
-                    onClick={() => handleCopy(item.activationCode, idx)}
+                    onClick={() => handleCopy(item.activationCode, idx + (page - 1) * PAGE_SIZE)}
                   >
-                    {copiedIndex === idx ? '已复制' : '复制'}
+                    {copiedIndex === idx + (page - 1) * PAGE_SIZE ? '已复制' : '复制'}
                   </button>
                 </td>
               </tr>
@@ -83,6 +107,25 @@ export default function ActivationHistory() {
           </tbody>
         </table>
       </div>
+      {totalPages > 1 && (
+        <div className="flex justify-center items-center gap-2 mt-4">
+          <button
+            className="px-2 py-1 rounded border bg-gray-100 hover:bg-gray-200"
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            disabled={page === 1}
+          >
+            上一页
+          </button>
+          <span>第 {page} / {totalPages} 页</span>
+          <button
+            className="px-2 py-1 rounded border bg-gray-100 hover:bg-gray-200"
+            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+            disabled={page === totalPages}
+          >
+            下一页
+          </button>
+        </div>
+      )}
     </div>
   );
 } 

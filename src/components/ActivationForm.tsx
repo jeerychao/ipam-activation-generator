@@ -61,15 +61,33 @@ export default function ActivationForm() {
 
   const handleCopy = () => {
     if (activationCode) {
-      navigator.clipboard.writeText(activationCode);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(activationCode).then(() => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        }).catch(() => {
+          fallbackCopy(activationCode);
+        });
+      } else {
+        fallbackCopy(activationCode);
+      }
     }
   };
 
+  function fallbackCopy(text: string) {
+    const input = document.createElement('input');
+    input.value = text;
+    document.body.appendChild(input);
+    input.select();
+    document.execCommand('copy');
+    document.body.removeChild(input);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
+
   return (
-    <>
-      <div className="max-w-xl mx-auto mt-12 p-8 bg-white rounded-xl shadow-lg border border-gray-100">
+    <div className="flex flex-col items-center min-h-screen bg-gray-50">
+      <div className="max-w-xl w-full mt-12 p-8 bg-white rounded-xl shadow-lg border border-gray-100">
         <h2 className="text-2xl font-bold mb-6 text-center">激活码生成器</h2>
         <form onSubmit={handleGenerate} className="space-y-6">
           <div>
@@ -124,7 +142,11 @@ export default function ActivationForm() {
           </div>
         )}
       </div>
-      <ActivationHistory key={historyRefresh} />
-    </>
+      <div className="w-full flex justify-center">
+        <div className="max-w-2xl w-full">
+          <ActivationHistory key={historyRefresh} />
+        </div>
+      </div>
+    </div>
   );
 } 
