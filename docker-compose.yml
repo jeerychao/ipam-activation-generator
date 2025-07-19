@@ -9,7 +9,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      - "5434:5432"  # 外部端口5434，避免与其他Postgres容器冲突
+      - "5434:5432"  # 避免与其他Postgres容器冲突
     volumes:
       - pgdata:/var/lib/postgresql/data
     restart: unless-stopped
