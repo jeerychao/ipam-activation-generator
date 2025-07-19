@@ -14,9 +14,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 COPY prisma ./prisma/
 RUN npm config set registry https://registry.npmmirror.com/ && \
-    npm ci --ignore-scripts && \
-    mkdir -p /app/.npm && \
-    chown -R 1001:1001 /app/.npm
+    npm ci --ignore-scripts
 
 
 # 构建阶段：编译、生成Prisma Client、Next.js构建

@@ -35,6 +35,7 @@ services:
     depends_on:
       - db
     restart: "no"
+    user: root
 
 volumes:
   pgdata:
