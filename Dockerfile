@@ -1,36 +1,61 @@
-# 基于官方 Node.js 镜像
-FROM node:20-slim AS builder
+# Use the official Node.js runtime as the base image
+FROM node:18-alpine AS base
 
-# 设置工作目录
+# Install dependencies only when needed
+FROM base AS deps
+# Check https://github.com/nodejs/docker-node/tree/b4117f9333da4138b03a546ec926ef50a31506c3#nodealpine to understand why libc6-compat might be needed.
+RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# 拷贝依赖文件
-COPY package.json package-lock.json ./
+# Install dependencies based on the preferred package manager
+COPY package.json package-lock.json* ./
+RUN npm ci
 
-# 使用国内 npm 镜像加速并安装依赖
-RUN npm config set registry https://registry.npmmirror.com/ && npm install --frozen-lockfile
-
-# 拷贝全部源代码
+# Rebuild the source code only when needed
+FROM base AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# 构建 Next.js 应用
+# Generate Prisma client
+RUN npx prisma generate
+
+# Build the application
 RUN npm run build
 
-# 生产环境镜像
-FROM node:20-slim AS runner
+# Production image, copy all the files and run next
+FROM base AS runner
 WORKDIR /app
 
-# 仅拷贝生产依赖和构建产物
-COPY --from=builder /app/package.json ./
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/next.config.ts ./
-COPY --from=builder /app/next-env.d.ts ./
-COPY --from=builder /app/tsconfig.json ./
+ENV NODE_ENV production
+# Uncomment the following line in case you want to disable telemetry during runtime.
+# ENV NEXT_TELEMETRY_DISABLED 1
 
-ENV NODE_ENV=production
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
+COPY --from=builder /app/public ./public
+
+# Set the correct permission for prerender cache
+RUN mkdir .next
+RUN chown nextjs:nodejs .next
+
+# Automatically leverage output traces to reduce image size
+# https://nextjs.org/docs/advanced-features/output-file-tracing
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+# Copy Prisma files
+COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+
+USER nextjs
 
 EXPOSE 3000
 
-CMD ["npm", "start"] 
+ENV PORT 3000
+# set hostname to localhost
+ENV HOSTNAME "0.0.0.0"
+
+# Run database migrations and start the application
+CMD npx prisma db push && node server.js 

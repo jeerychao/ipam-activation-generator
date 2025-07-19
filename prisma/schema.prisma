@@ -1,0 +1,31 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model ActivationHistory {
+  id             String   @id @default(cuid())
+  serial         String   @db.VarChar(19)
+  validity       String   @db.VarChar(50)
+  activationCode String   @db.Text
+  
+  // 用户单位信息
+  organization   String?  @db.VarChar(200)  // 单位名称
+  contactPerson  String?  @db.VarChar(100)  // 联系人
+  contactPhone   String?  @db.VarChar(50)   // 联系电话
+  contactEmail   String?  @db.VarChar(100)  // 联系邮箱
+  address        String?  @db.VarChar(500)  // 地址
+  remarks        String?  @db.Text          // 备注
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("activation_history")
+} 
