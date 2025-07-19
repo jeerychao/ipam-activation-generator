@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build",
+    "build": "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/ipam_activation_generator next build",
     "start": "next start",
     "lint": "next lint",
     "db:generate": "prisma generate",

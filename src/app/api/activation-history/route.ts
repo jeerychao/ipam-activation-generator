@@ -4,6 +4,14 @@ import { ActivationHistoryService } from '@/lib/database';
 // GET - 获取激活历史记录
 export async function GET(request: NextRequest) {
   try {
+    // 在构建时跳过数据库操作
+    if (process.env.NODE_ENV === 'production' && !process.env.DATABASE_URL) {
+      return NextResponse.json(
+        { error: 'Database not available' },
+        { status: 503 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
     const pageSize = parseInt(searchParams.get('pageSize') || '10');
@@ -29,6 +37,14 @@ export async function GET(request: NextRequest) {
 // POST - 保存激活历史记录
 export async function POST(request: NextRequest) {
   try {
+    // 在构建时跳过数据库操作
+    if (process.env.NODE_ENV === 'production' && !process.env.DATABASE_URL) {
+      return NextResponse.json(
+        { error: 'Database not available' },
+        { status: 503 }
+      );
+    }
+
     const {
       serial,
       validity,
@@ -73,6 +89,14 @@ export async function POST(request: NextRequest) {
 // DELETE - 清空所有激活历史记录
 export async function DELETE() {
   try {
+    // 在构建时跳过数据库操作
+    if (process.env.NODE_ENV === 'production' && !process.env.DATABASE_URL) {
+      return NextResponse.json(
+        { error: 'Database not available' },
+        { status: 503 }
+      );
+    }
+
     await ActivationHistoryService.clearAllActivationHistory();
     return NextResponse.json({ message: '激活历史记录已清空' });
   } catch (error) {

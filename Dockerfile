@@ -27,11 +27,15 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
+# Copy and set permissions for build script
+COPY scripts/build.sh ./scripts/build.sh
+RUN chmod +x ./scripts/build.sh
+
 # Generate Prisma client
 RUN npx prisma generate
 
-# Build the application
-RUN npm run build
+# Build the application using the build script
+RUN ./scripts/build.sh
 
 # Production image, copy all the files and run next
 FROM base AS runner

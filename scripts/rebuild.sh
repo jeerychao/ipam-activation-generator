@@ -4,6 +4,11 @@ echo "清理Docker容器和镜像..."
 docker-compose down -v
 docker system prune -f
 
+echo "给脚本添加执行权限..."
+chmod +x scripts/build.sh
+chmod +x scripts/start.sh
+chmod +x scripts/rebuild.sh
+
 echo "重新构建镜像..."
 docker-compose build --no-cache
 
