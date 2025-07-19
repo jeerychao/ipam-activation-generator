@@ -26,5 +26,15 @@ services:
       - db
     restart: unless-stopped
 
+  ipam-activation-migrate:
+    build: .
+    container_name: ipam-activation-migrate
+    command: npx prisma db push
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/ipam_activation_generator
+    depends_on:
+      - db
+    restart: "no"
+
 volumes:
   pgdata:
