@@ -3,7 +3,7 @@ FROM node:20-slim AS base
 
 # Install system dependencies including OpenSSL
 RUN apt-get update -y && \
-    apt-get install -y openssl curl postgresql-client && \
+    apt-get install -y openssl curl && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -15,11 +15,12 @@ FROM base AS deps
 WORKDIR /app
 
 # Install dependencies based on the preferred package manager
-COPY package.json package-lock.json* ./
+COPY package.json package-lock.json ./
 COPY prisma ./prisma/
-RUN npm config set registry https://registry.npmmirror.com/ && \
-    npm ci --ignore-scripts && \
-    npx prisma generate
+RUN npm config set registry https://registry.npmmirror.com/
+ENV PRISMA_ENGINES_MIRROR="https://prisma-photons-mirror.vercel.app/all_commits"
+RUN npm ci --ignore-scripts
+RUN npx prisma generate
 
 # Rebuild the source code only when needed
 FROM base AS builder
@@ -51,6 +52,10 @@ RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 --home /app nextjs
 
 COPY --from=builder /app/public ./public
+COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/prisma ./prisma
 
 # Set the correct permission for prerender cache
 RUN mkdir .next
@@ -79,6 +84,8 @@ ENV HOME=/app
 ENV NPM_CONFIG_CACHE=/app/.npm
 ENV NPM_CONFIG_PREFIX=/app/.npm-global
 
+ENV DATABASE_URL=postgresql://postgres:postgres@db:5432/ipam_activation_generator
+
 USER nextjs
 
 EXPOSE 3000
@@ -88,4 +95,4 @@ ENV PORT 3000
 ENV HOSTNAME "0.0.0.0"
 
 # Use the start script
-CMD ["/app/scripts/start.sh"] 
+CMD ["npx", "next", "start"] 
