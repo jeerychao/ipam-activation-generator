@@ -1,15 +1,24 @@
 # Use the official Node.js runtime as the base image
-FROM node:18-alpine AS base
+FROM node:20-slim AS base
+
+# Install system dependencies including OpenSSL
+RUN apt-get update -y && \
+    apt-get install -y openssl curl postgresql-client && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Enable corepack for package manager management
+RUN corepack enable
 
 # Install dependencies only when needed
 FROM base AS deps
-# Check https://github.com/nodejs/docker-node/tree/b4117f9333da4138b03a546ec926ef50a31506c3#nodealpine to understand why libc6-compat might be needed.
-RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 # Install dependencies based on the preferred package manager
 COPY package.json package-lock.json* ./
-RUN npm ci
+COPY prisma ./prisma/
+RUN npm config set registry https://registry.npmmirror.com/ && \
+    npm ci
 
 # Rebuild the source code only when needed
 FROM base AS builder
@@ -29,10 +38,10 @@ WORKDIR /app
 
 ENV NODE_ENV production
 # Uncomment the following line in case you want to disable telemetry during runtime.
-# ENV NEXT_TELEMETRY_DISABLED 1
+ENV NEXT_TELEMETRY_DISABLED 1
 
 RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
+RUN adduser --system --uid 1001 --home /app nextjs
 
 COPY --from=builder /app/public ./public
 
@@ -45,9 +54,19 @@ RUN chown nextjs:nodejs .next
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Copy Prisma files
-COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+# Copy Prisma files with proper permissions
+COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
+
+# Create necessary directories with proper permissions
+RUN mkdir -p /app/temp /app/backups /app/.npm /app/.npm-global/lib /app/.npm-global/bin /app/logs && \
+    chown -R nextjs:nodejs /app
+
+# Set npm environment variables for nextjs user
+ENV HOME=/app
+ENV NPM_CONFIG_CACHE=/app/.npm
+ENV NPM_CONFIG_PREFIX=/app/.npm-global
 
 USER nextjs
 
