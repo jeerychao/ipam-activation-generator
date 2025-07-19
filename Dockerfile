@@ -1,4 +1,6 @@
-FROM node:20-slim
+# 基础镜像
+FROM node:20-slim AS base
+WORKDIR /app
 
 # 安装系统依赖
 RUN apt-get update -y && \
@@ -6,26 +8,50 @@ RUN apt-get update -y && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
+# 依赖阶段：只装依赖
+FROM base AS dependencies
 WORKDIR /app
-
-# 复制依赖文件
 COPY package.json package-lock.json ./
 COPY prisma ./prisma/
+RUN npm config set registry https://registry.npmmirror.com/ && \
+    npm ci --ignore-scripts
 
-# 设置国内npm源
-RUN npm config set registry https://registry.npmmirror.com/
-
-# 安装依赖并生成Prisma Client
-RUN npm ci --ignore-scripts
-RUN npx prisma generate
-
-# 复制全部代码
+# 构建阶段：编译、生成Prisma Client、Next.js构建
+FROM base AS builder
+WORKDIR /app
+COPY --from=dependencies /app/node_modules ./node_modules
+COPY --from=dependencies /app/package.json ./package.json
+COPY --from=dependencies /app/prisma ./prisma
 COPY . .
-
-# 构建Next.js
+RUN npx prisma generate
+ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 ENV DATABASE_URL=postgresql://postgres:postgres@db:5432/ipam_activation_generator
 RUN npm run build
 
+# 运行阶段：只包含生产运行所需内容
+FROM base AS runner
+WORKDIR /app
+
+# 非root用户运行
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 --home /app nextjs
+
+# 只复制生产运行所需内容
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder /app/package.json ./package.json
+
+ENV NODE_ENV=production
+ENV DATABASE_URL=postgresql://postgres:postgres@db:5432/ipam_activation_generator
+ENV PORT=3000
+ENV NEXT_TELEMETRY_DISABLED=1
+
+USER nextjs
 EXPOSE 3000
-CMD ["npx", "next", "start"]
+
+CMD ["node", "server.js"]
