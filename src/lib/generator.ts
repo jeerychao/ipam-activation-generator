@@ -26,6 +26,19 @@ export function getValidUntil(days: number | 'permanent'): number {
   return Date.now() + days * 24 * 60 * 60 * 1000;
 }
 
+// Base64 编码（与验证器保持一致）
+function base64Encode(str: string): string {
+  // 在浏览器环境中使用 TextEncoder 和 btoa
+  if (typeof window !== 'undefined') {
+    const encoder = new TextEncoder();
+    const bytes = encoder.encode(str);
+    const binary = Array.from(bytes, byte => String.fromCharCode(byte)).join('');
+    return btoa(binary);
+  }
+  // 在 Node.js 环境中使用 Buffer
+  return Buffer.from(str).toString('base64');
+}
+
 // 激活码生成主函数
 export function generateActivationCode(serial: string, validityDays: number | 'permanent'): string {
   // 校验序列号格式
@@ -39,5 +52,5 @@ export function generateActivationCode(serial: string, validityDays: number | 'p
   const serialHash = hash.slice(0, 8);
   const validity = getValidUntil(validityDays).toString();
   const data = `${serialHash}:${validity}:${salt}`;
-  return btoa(data);
+  return base64Encode(data);
 } 
