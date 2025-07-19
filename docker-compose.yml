@@ -5,15 +5,23 @@ services:
     build: .
     container_name: ipam-activation-generator-app
     ports:
-      - "3001:3000"
+      - "3000:3000"
     environment:
       - NODE_ENV=production
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/ipam_activation_generator
+      - PRISMA_SKIP_POSTINSTALL_GENERATE=1
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     restart: unless-stopped
     volumes:
       - ./prisma:/app/prisma
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   db:
     image: postgres:15-alpine
@@ -27,6 +35,11 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ipam_activation_generator"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   pgdata: 

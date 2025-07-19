@@ -18,7 +18,8 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 COPY prisma ./prisma/
 RUN npm config set registry https://registry.npmmirror.com/ && \
-    npm ci
+    npm ci --ignore-scripts && \
+    npx prisma generate
 
 # Rebuild the source code only when needed
 FROM base AS builder
@@ -39,6 +40,8 @@ WORKDIR /app
 ENV NODE_ENV production
 # Uncomment the following line in case you want to disable telemetry during runtime.
 ENV NEXT_TELEMETRY_DISABLED 1
+# Prevent automatic Prisma installation
+ENV PRISMA_SKIP_POSTINSTALL_GENERATE 1
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 --home /app nextjs
@@ -59,6 +62,10 @@ COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
 
+# Copy scripts and set permissions
+COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
+RUN chmod +x /app/scripts/start.sh
+
 # Create necessary directories with proper permissions
 RUN mkdir -p /app/temp /app/backups /app/.npm /app/.npm-global/lib /app/.npm-global/bin /app/logs && \
     chown -R nextjs:nodejs /app
@@ -76,5 +83,5 @@ ENV PORT 3000
 # set hostname to localhost
 ENV HOSTNAME "0.0.0.0"
 
-# Run database migrations and start the application
-CMD npx prisma db push && node server.js 
+# Use the start script
+CMD ["/app/scripts/start.sh"] 
